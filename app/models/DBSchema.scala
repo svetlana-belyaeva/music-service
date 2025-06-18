@@ -30,9 +30,9 @@ object DBSchema {
     def genre = column[Genre.Value]("genre")
     def file = column[String]("file")
 
-//    def albumId = column[Long]("album_id")
-//    def album = foreignKey("album_fk", albumId, albums)(_.id, onUpdate = ForeignKeyAction.Restrict, onDelete = ForeignKeyAction.Cascade)
-    def * = (id, name, cover, length, genre, file/*,  album*/).mapTo[Song]
+    def albumId = column[Long]("album_id")
+    def album = foreignKey("album_fk", albumId, albums)(_.id, onUpdate = ForeignKeyAction.Restrict, onDelete = ForeignKeyAction.Cascade)
+    def * = (id, name, cover, length, genre, file,  albumId).mapTo[Song]
   }
   val songs = TableQuery[SongTable]
 

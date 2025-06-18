@@ -19,7 +19,9 @@ object Genre extends Enumeration {
 // fixme: where to use trait?
 trait Performer {
   def id: Long
+
   def name: String
+
   def cover: Option[String]
 }
 
@@ -48,7 +50,7 @@ case class Song(
                  length: Double,
                  genre: Genre.Value,
                  file: String,
-                 //album: Album
+                 albumId: Long
                )
 
 case class Album(
@@ -56,6 +58,11 @@ case class Album(
                   name: String,
                   cover: Option[String]
                 )
+
+case class AlbumExtended(
+                          album: Album,
+                          songs: Seq[Song]
+                        )
 
 case class AuthorToSong(
                          songId: Long,

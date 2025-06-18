@@ -7,7 +7,18 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class DAO(db: Database) {
-  def allAlbums(): Future[Seq[models.Album]] = db.run(albums.result)
+  def album(nameSubstr: String): Future[Seq[models.AlbumExtended]] = {
+    val albumsWithSongsQuery = for {
+      album <- albums if album.name like s"%$nameSubstr%"
+      song <- songs if song.albumId === album.id
+    } yield (album, song)
+    db.run(albumsWithSongsQuery.result).map(tuple => {
+      val groupedByAlbum = tuple.groupBy(_._1)
+      groupedByAlbum.map {
+        case (album, albumWithSongs) => AlbumExtended(album, albumWithSongs.map(_._2))
+      }
+    }.toSeq)
+  }
 
   def allSongs(): Future[Seq[models.Song]] = db.run(songs.result)
 

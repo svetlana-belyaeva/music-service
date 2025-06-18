@@ -6,8 +6,6 @@ import sangria.schema.{Field, _}
 object SchemaDefinition {
   val genreEnum = deriveEnumType[Genre.Value]()
 
-  val albumType = deriveObjectType[Unit, Album]()
-
   val songType = deriveObjectType[Unit, Song](
     ReplaceField("genre", Field("genre", genreEnum, resolve = _.value.genre))
     //ReplaceField("album", Field("album", albumType, resolve = _.value.album)),
@@ -21,15 +19,24 @@ object SchemaDefinition {
     )
   )
 
+  val albumType = deriveObjectType[Unit, Album]()
+  val albumExtendedType = ObjectType("album", "album with songs and albums",
+    fields[Unit, AlbumExtended](
+      Field("name", StringType, Some("album name"), resolve = _.value.album.name),
+      Field("cover", OptionType(StringType), Some("album cover"), resolve = _.value.album.cover),
+      Field("songs", ListType(songType), Some("songs in the album"), resolve = _.value.songs)
+    )
+  )
+
   val nameSubstringArg = Argument("nameSubstring", StringType, description = "name substring to search for some entity")
   val genreArg = Argument("genre", genreEnum, description = "genre argument to search for")
 
   val queryType: ObjectType[MyContext, Unit] =
     ObjectType("Query", fields[MyContext, Unit](
-      Field("all_albums", ListType(albumType),
-        description = Some("Returns all albums"),
-        arguments = Nil,
-        resolve = c => c.ctx.dao.allAlbums()),
+      Field("album", ListType(albumExtendedType),
+        description = Some("Returns albums which name match passed argument"),
+        arguments = nameSubstringArg :: Nil,
+        resolve = c => c.ctx.dao.album(c arg nameSubstringArg)),
 
       Field("all_songs", ListType(songType),
         description = Some("Returns all songs"),
