@@ -1,20 +1,17 @@
 package controllers
 
-import models.{SchemaDefinition, SongRepo}
+import models.{DBSchema, MyContext, SchemaDefinition}
 import play.api.libs.json.{JsObject, JsString, Json}
-
-import javax.inject._
 import play.api.mvc._
-import sangria.execution.deferred.DeferredResolver
-import sangria.execution.{ErrorWithResolver, ExceptionHandler, Executor, HandledException, MaxQueryDepthReachedError, QueryAnalysisError, QueryReducer}
+import sangria.execution._
+import sangria.marshalling.playJson._
 import sangria.parser.{QueryParser, SyntaxError}
 import sangria.renderer.SchemaRenderer
-import sangria.slowlog.SlowLog
-import sangria.marshalling.playJson._
 
+import javax.inject._
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
-import ExecutionContext.Implicits.global
 
 /**
  * This controller creates an `Action` to handle HTTP requests to the
@@ -22,6 +19,8 @@ import ExecutionContext.Implicits.global
  */
 @Singleton
 class Application @Inject()(val controllerComponents: ControllerComponents) extends BaseController {
+
+  private val dao = DBSchema.createDatabase
 
   /**
    * Create an Action to render an HTML page.
@@ -65,7 +64,7 @@ class Application @Inject()(val controllerComponents: ControllerComponents) exte
         Executor.execute(
             SchemaDefinition.schema,
             queryAst,
-            new SongRepo,
+            userContext = MyContext(dao),
             variables = variables getOrElse Json.obj(),
             operationName = operation
           ).map(Ok(_))

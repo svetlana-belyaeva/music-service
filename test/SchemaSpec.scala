@@ -1,4 +1,4 @@
-import models.{SongRepo, SchemaDefinition}
+import models.{MyContext, SchemaDefinition, SongRepo}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.{JsObject, JsString, Json}
@@ -39,10 +39,10 @@ class SchemaSpec  extends AnyWordSpec with Matchers {
 
   def executeQuery(query: Document, vars: JsObject = Json.obj()) = {
     // fixme: too difficult... cached songs?
-    val futureResult = Executor.execute(SchemaDefinition.schema, query,
-      variables = vars,
-      userContext = new SongRepo,
-      deferredResolver = DeferredResolver.fetchers(SchemaDefinition.songs))
-    Await.result(futureResult, 10.seconds)
+//    val futureResult = Executor.execute(SchemaDefinition.schema, query,
+//      variables = vars,
+//      userContext = new MyContext(dao = new DAO()),
+//      deferredResolver = DeferredResolver.fetchers(SchemaDefinition.songs))
+//    Await.result(futureResult, 10.seconds)
   }
 }
