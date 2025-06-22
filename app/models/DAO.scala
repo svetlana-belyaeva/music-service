@@ -7,17 +7,14 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class DAO(db: Database) {
-  def album(nameSubstr: String): Future[Seq[models.AlbumExtended]] = {
-    val albumsWithSongsQuery = for {
-      album <- albums if album.name like s"%$nameSubstr%"
-      song <- songs if song.albumId === album.id
-    } yield (album, song)
-    db.run(albumsWithSongsQuery.result).map(tuple => {
-      val groupedByAlbum = tuple.groupBy(_._1)
-      groupedByAlbum.map {
-        case (album, albumWithSongs) => AlbumExtended(album, albumWithSongs.map(_._2))
-      }
-    }.toSeq)
+  def album(nameSubstr: String): Future[Seq[models.Album]] = {
+    val albumsMatchingName = albums.filter(_.name like(s"%$nameSubstr%"))
+    db.run(albumsMatchingName.result)
+  }
+
+  def album(ids: Seq[Long]): Future[Seq[models.Album]] = {
+    val albumsMatchingName = albums.filter(_.id inSet ids)
+    db.run(albumsMatchingName.result)
   }
 
   def singer(nameSubstr: String): Future[Seq[models.SingerExtended]] = {
@@ -49,6 +46,11 @@ class DAO(db: Database) {
     db.run(songsMatchingName.result)
   }
 
+  def song(ids: Seq[Long]): Future[Seq[Song]] = {
+    val songsMatchingIds = songs.filter(_.id inSet ids)
+    db.run(songsMatchingIds.result)
+  }
+
   def songByGenre(genre: Genre.Value): Future[Seq[Song]] = {
     val songsMatchingName = songs.filter(_.genre === genre)
     db.run(songsMatchingName.result)
@@ -59,6 +61,10 @@ class DAO(db: Database) {
       (user, id) => user.copy(id = id)
     } += newUser
     db.run(userWithIdQuery).map(_.id)
+  }
+
+  def songsByAlbum(albumIds: Seq[Long]): Future[Seq[Song]] = {
+    db.run(songs.filter(_.albumId inSet albumIds).result)
   }
 
   def likeSong(userId: Long, songId: Long): Future[Int] = {

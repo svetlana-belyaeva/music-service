@@ -66,7 +66,8 @@ class Application @Inject()(val controllerComponents: ControllerComponents) exte
             queryAst,
             userContext = MyContext(dao),
             variables = variables getOrElse Json.obj(),
-            operationName = operation
+            operationName = operation,
+            deferredResolver = SchemaDefinition.Resolver
           ).map(Ok(_))
           .recover {
             case error: QueryAnalysisError => BadRequest(error.resolveError)

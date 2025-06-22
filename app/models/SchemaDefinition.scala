@@ -5,13 +5,14 @@ import sangria.schema.{Field, _}
 import sangria.marshalling.{CoercedScalaResultMarshaller, FromInput}
 import sangria.marshalling.FromInput.InputObjectResult
 import sangria.util.tag.@@
+import sangria.execution.deferred.{DeferredResolver, Fetcher, HasId, Relation, RelationIds}
 
 object SchemaDefinition {
   val genreEnum = deriveEnumType[Genre.Value]()
 
-  val songType = deriveObjectType[Unit, Song](
-    ReplaceField("genre", Field("genre", genreEnum, resolve = _.value.genre))
-    //ReplaceField("album", Field("album", albumType, resolve = _.value.album)),
+  lazy val songType: ObjectType[Unit, Song] = deriveObjectType[Unit, Song](
+    ReplaceField("genre", Field("genre", genreEnum, resolve = _.value.genre)),
+    AddFields(Field("album", albumType, resolve = c => albumsFetcher.defer(c.value.albumId)))
   )
   val singerType = deriveObjectType[Unit, Singer]()
   val singerExtendedType = ObjectType("singer", "singer with songs and albums",
@@ -22,21 +23,30 @@ object SchemaDefinition {
     )
   )
 
-  val albumType = deriveObjectType[Unit, Album]()
-  val albumExtendedType = ObjectType("album", "album with songs and albums",
-    fields[Unit, AlbumExtended](
-      Field("name", StringType, Some("album name"), resolve = _.value.album.name),
-      Field("cover", OptionType(StringType), Some("album cover"), resolve = _.value.album.cover),
-      Field("songs", ListType(songType), Some("songs in the album"), resolve = _.value.songs)
+  lazy val albumType: ObjectType[Unit, Album] = deriveObjectType[Unit, Album](
+    AddFields(
+      Field("songs", ListType(songType), resolve = c => songsFetcher.deferRelSeq(songsByAlbumRel, c.value.id))
     )
   )
+  implicit val albumHasId: HasId[Album, Long] = HasId[Album, Long](_.id)
+  implicit val songHasId: HasId[Song, Long] = HasId[Song, Long](_.id)
 
   val nameSubstringArg = Argument("nameSubstring", StringType, description = "name substring to search for some entity")
   val genreArg = Argument("genre", genreEnum, description = "genre argument to search for")
 
+  val songsByAlbumRel = Relation[Song, Long]("byAlbum", song => Seq(song.albumId))
+  val albumsFetcher = Fetcher(
+    (ctx: MyContext, ids: Seq[Long]) => ctx.dao.album(ids)
+  )
+  val songsFetcher = Fetcher.rel(
+    (ctx: MyContext, ids: Seq[Long]) => ctx.dao.song(ids),
+    (ctx: MyContext, ids: RelationIds[Song]) => ctx.dao.songsByAlbum(ids(songsByAlbumRel))
+  )
+  val Resolver = DeferredResolver.fetchers(albumsFetcher, songsFetcher)
+
   val queryType: ObjectType[MyContext, Unit] =
     ObjectType("Query", fields[MyContext, Unit](
-      Field("album", ListType(albumExtendedType),
+      Field("album", ListType(albumType),
         description = Some("Returns albums which name match passed argument"),
         arguments = nameSubstringArg :: Nil,
         resolve = c => c.ctx.dao.album(c arg nameSubstringArg)),

@@ -59,11 +59,6 @@ case class Album(
                   cover: Option[String]
                 )
 
-case class AlbumExtended(
-                          album: Album,
-                          songs: Seq[Song]
-                        )
-
 case class AuthorToSong(
                          songId: Long,
                          singerId: Option[Long],
