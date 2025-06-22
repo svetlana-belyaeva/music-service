@@ -2,6 +2,9 @@ package models
 
 import sangria.macros.derive._
 import sangria.schema.{Field, _}
+import sangria.marshalling.{CoercedScalaResultMarshaller, FromInput}
+import sangria.marshalling.FromInput.InputObjectResult
+import sangria.util.tag.@@
 
 object SchemaDefinition {
   val genreEnum = deriveEnumType[Genre.Value]()
@@ -48,15 +51,77 @@ object SchemaDefinition {
         arguments = nameSubstringArg :: Nil,
         resolve = c => c.ctx.dao.singer(c arg nameSubstringArg)),
 
-//      Field("songs", ListType(songType),
-//        description = Some("Returns songs which names match passed argument"),
-//        arguments = nameSubstringArg :: Nil,
-//        resolve = c => c.ctx.getSong(c arg nameSubstringArg)),
-//      Field("songs_by_genre", ListType(songType),
-//        description = Some("Returns songs for matching genre"),
-//        arguments = genreArg :: Nil,
-//        resolve = c => c.ctx.getSongByGenre(c arg genreArg))
+      //      Field("songs", ListType(songType),
+      //        description = Some("Returns songs which names match passed argument"),
+      //        arguments = nameSubstringArg :: Nil,
+      //        resolve = c => c.ctx.getSong(c arg nameSubstringArg)),
+      //      Field("songs_by_genre", ListType(songType),
+      //        description = Some("Returns songs for matching genre"),
+      //        arguments = genreArg :: Nil,
+      //        resolve = c => c.ctx.getSongByGenre(c arg genreArg))
     ))
 
-  val schema: Schema[MyContext, Unit] = Schema(queryType)
+  val userId = Argument("userId", LongType)
+  val songId = Argument("songId", LongType)
+  val albumId = Argument("albumId", LongType)
+  val singerId = Argument("singerId", LongType)
+  val bandId = Argument("bandId", LongType)
+
+  val userRoleType = deriveEnumType[UserRole.Value]()
+  implicit val userMarshaller: FromInput[User] = new FromInput[User] {
+    val marshaller = CoercedScalaResultMarshaller.default
+
+    def fromResult(node: marshaller.Node) = {
+      val ad = node.asInstanceOf[Map[String, Any]]
+
+      User(
+        id = 0,
+        role = ad("role").asInstanceOf[UserRole.Value],
+        nickname = ad("nickname").asInstanceOf[String],
+        email = ad("email").asInstanceOf[String],
+        password = ad("password").asInstanceOf[String]
+      )
+    }
+  }
+  val userInputType: InputObjectType[User] =
+    InputObjectType[User]("user", List(
+      InputField("role", userRoleType),
+      InputField("nickname", StringType),
+      InputField("email", StringType),
+      InputField("password", StringType)
+    ))
+  val userArg: Argument[User] = Argument[User @@ InputObjectResult]("user", userInputType)
+
+  val mutationType = ObjectType(
+    "Mutation",
+    fields[MyContext, Unit](
+      Field("likeSong", IntType,
+        description = Some("User likes a song"),
+        arguments = userId :: songId :: Nil,
+        resolve = c => c.ctx.dao.likeSong(c arg userId, c arg songId)
+      ),
+      Field("likeAlbum", IntType,
+        description = Some("User likes an album"),
+        arguments = userId :: albumId :: Nil,
+        resolve = c => c.ctx.dao.likeAlbum(c arg userId, c arg albumId)
+      ),
+      Field("likeSinger", IntType,
+        description = Some("User likes a singer"),
+        arguments = userId :: singerId :: Nil,
+        resolve = c => c.ctx.dao.likeSinger(c arg userId, c arg singerId)
+      ),
+      Field("likeBand", IntType,
+        description = Some("User likes a band"),
+        arguments = userId :: bandId :: Nil,
+        resolve = c => c.ctx.dao.likeBand(c arg userId, c arg bandId)
+      ),
+      Field("createUser", LongType,
+        description = Some("Register user"),
+        arguments = userArg :: Nil,
+        resolve = c => c.ctx.dao.createUser(c arg userArg)
+      )
+    )
+  )
+
+  val schema: Schema[MyContext, Unit] = Schema(queryType, Some(mutationType))
 }

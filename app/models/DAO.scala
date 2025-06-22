@@ -47,4 +47,33 @@ class DAO(db: Database) {
   }
 
   //  def song(nameSubstring: String): Future[Seq[models.Song]] = db.run(songs.result)
+
+  def createUser(newUser: User): Future[Long] = {
+    val userWithIdQuery = (users returning users.map(_.id)) into {
+      (user, id) => user.copy(id = id)
+    } += newUser
+    db.run(userWithIdQuery).map(_.id)
+  }
+
+  def likeSong(userId: Long, songId: Long): Future[Int] = {
+    val insertUserLikesSong = likedSongs += (userId, songId)
+    db.run(insertUserLikesSong)
+  }
+
+  def likeAlbum(userId: Long, albumId: Long): Future[Int] = {
+    val insertUserLikesAlbum = likedAlbums += (userId, albumId)
+    db.run(insertUserLikesAlbum)
+  }
+
+  def likeSinger(userId: Long, singerId: Long): Future[Int] = {
+    val insertUserLikesSinger = likedSingers += (userId, singerId)
+    db.run(insertUserLikesSinger)
+  }
+
+  def likeBand(userId: Long, bandId: Long): Future[Int] = {
+    val insertUserLikesBand = likedBands += (userId, bandId)
+    db.run(insertUserLikesBand)
+  }
+
+
 }

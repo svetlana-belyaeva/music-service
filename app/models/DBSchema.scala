@@ -5,7 +5,6 @@ import slick.jdbc.H2Profile.api._
 import slick.jdbc.JdbcType
 import slick.lifted.ProvenShape
 
-import javax.annotation.meta.TypeQualifierNickname
 import scala.language.postfixOps
 
 
@@ -66,7 +65,7 @@ object DBSchema {
 
   class UserTable(tag: Tag) extends Table[User](tag, Some(schema_name), "user") {
     def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
-    def role = column[UserRole.Value]("user_role")
+    def role = column[UserRole.Value]("role", O.SqlType(s"$schema_name.user_role"))
     def nickname = column[String]("nickname")
     def email = column[String]("email")
     def password = column[String]("password")
@@ -75,16 +74,48 @@ object DBSchema {
   }
   val users = TableQuery[UserTable]
 
-  class UserListenSongTable(tag: Tag) extends Table[UserListensToSong](tag, Some(schema_name), "user_listen_song") {
-    def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+//  class UserListenSongTable(tag: Tag) extends Table[UserListensToSong](tag, Some(schema_name), "user_listen_song") {
+//    def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+//    def userId = column[Long]("user_id")
+//    def songId = column[Long]("song_id")
+//
+//    def * = (id, userId, songId).mapTo[UserListensToSong]
+//
+//    // fixme: add foreign keys?
+//  }
+//  val userListenSong = TableQuery[UserListenSongTable]
+
+  class LikedSongTable(tag: Tag) extends Table[(Long, Long)](tag, Some(schema_name), "liked_song") {
     def userId = column[Long]("user_id")
     def songId = column[Long]("song_id")
 
-    def * = (id, userId, songId).mapTo[UserListensToSong]
-
-    // fixme: add foreign keys?
+    override def * : ProvenShape[(Long, Long)] = (userId, songId)
   }
-  val userListenSong = TableQuery[UserListenSongTable]
+  val likedSongs = TableQuery[LikedSongTable]
+
+  class LikedAlbumTable(tag: Tag) extends Table[(Long, Long)](tag, Some(schema_name), "liked_album") {
+    def userId = column[Long]("user_id")
+    def albumId = column[Long]("album_id")
+
+    override def * : ProvenShape[(Long, Long)] = (userId, albumId)
+  }
+  val likedAlbums = TableQuery[LikedAlbumTable]
+
+  class LikedSingerTable(tag: Tag) extends Table[(Long, Long)](tag, Some(schema_name), "liked_singer") {
+    def userId = column[Long]("user_id")
+    def singerId = column[Long]("singer_id")
+
+    override def * : ProvenShape[(Long, Long)] = (userId, singerId)
+  }
+  val likedSingers = TableQuery[LikedSingerTable]
+
+  class LikedBandTable(tag: Tag) extends Table[(Long, Long)](tag, Some(schema_name), "liked_band") {
+    def userId = column[Long]("user_id")
+    def bandId = column[Long]("band_id")
+
+    override def * : ProvenShape[(Long, Long)] = (userId, bandId)
+  }
+  val likedBands = TableQuery[LikedBandTable]
 
   def createDatabase: DAO = {
     val db = Database.forConfig("postgres")
