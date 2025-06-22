@@ -40,25 +40,18 @@ object SchemaDefinition {
         description = Some("Returns albums which name match passed argument"),
         arguments = nameSubstringArg :: Nil,
         resolve = c => c.ctx.dao.album(c arg nameSubstringArg)),
-
-      Field("all_songs", ListType(songType),
-        description = Some("Returns all songs"),
-        arguments = Nil,
-        resolve = c => c.ctx.dao.allSongs()),
-
       Field("singer", ListType(singerExtendedType),
         description = Some("Returns singers with name matching substring"),
         arguments = nameSubstringArg :: Nil,
         resolve = c => c.ctx.dao.singer(c arg nameSubstringArg)),
-
-      //      Field("songs", ListType(songType),
-      //        description = Some("Returns songs which names match passed argument"),
-      //        arguments = nameSubstringArg :: Nil,
-      //        resolve = c => c.ctx.getSong(c arg nameSubstringArg)),
-      //      Field("songs_by_genre", ListType(songType),
-      //        description = Some("Returns songs for matching genre"),
-      //        arguments = genreArg :: Nil,
-      //        resolve = c => c.ctx.getSongByGenre(c arg genreArg))
+      Field("song", ListType(songType),
+        description = Some("Returns songs which names match passed argument"),
+        arguments = nameSubstringArg :: Nil,
+        resolve = c => c.ctx.dao.song(c arg nameSubstringArg)),
+      Field("song_by_genre", ListType(songType),
+        description = Some("Returns songs for matching genre"),
+        arguments = genreArg :: Nil,
+        resolve = c => c.ctx.dao.songByGenre(c arg genreArg))
     ))
 
   val userId = Argument("userId", LongType)

@@ -20,8 +20,6 @@ class DAO(db: Database) {
     }.toSeq)
   }
 
-  def allSongs(): Future[Seq[models.Song]] = db.run(songs.result)
-
   def singer(nameSubstr: String): Future[Seq[models.SingerExtended]] = {
     val filteredSingers = for {
       singer <- singers if singer.name like s"%$nameSubstr%"
@@ -46,7 +44,15 @@ class DAO(db: Database) {
     }.toSeq)
   }
 
-  //  def song(nameSubstring: String): Future[Seq[models.Song]] = db.run(songs.result)
+  def song(nameSubstring: String): Future[Seq[Song]] = {
+    val songsMatchingName = songs.filter(_.name like(s"%$nameSubstring%"))
+    db.run(songsMatchingName.result)
+  }
+
+  def songByGenre(genre: Genre.Value): Future[Seq[Song]] = {
+    val songsMatchingName = songs.filter(_.genre === genre)
+    db.run(songsMatchingName.result)
+  }
 
   def createUser(newUser: User): Future[Long] = {
     val userWithIdQuery = (users returning users.map(_.id)) into {
