@@ -7,7 +7,7 @@ import sangria.marshalling.FromInput.InputObjectResult
 import sangria.util.tag.@@
 import sangria.execution.deferred.{DeferredResolver, Fetcher, HasId, Relation, RelationIds}
 
-object SchemaDefinition {
+object GraphQLSchema {
   val genreEnum = deriveEnumType[Genre.Value]()
 
   lazy val songType: ObjectType[Unit, Song] = deriveObjectType[Unit, Song](

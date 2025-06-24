@@ -1,6 +1,6 @@
 package controllers
 
-import models.{DBSchema, MyContext, SchemaDefinition}
+import models.{DBSchema, MyContext, GraphQLSchema}
 import play.api.libs.json.{JsObject, JsString, Json}
 import play.api.mvc._
 import sangria.execution._
@@ -62,12 +62,12 @@ class Application @Inject()(val controllerComponents: ControllerComponents) exte
       case Success(queryAst) =>
 
         Executor.execute(
-            SchemaDefinition.schema,
+            GraphQLSchema.schema,
             queryAst,
             userContext = MyContext(dao),
             variables = variables getOrElse Json.obj(),
             operationName = operation,
-            deferredResolver = SchemaDefinition.Resolver
+            deferredResolver = GraphQLSchema.Resolver
           ).map(Ok(_))
           .recover {
             case error: QueryAnalysisError => BadRequest(error.resolveError)
@@ -89,7 +89,7 @@ class Application @Inject()(val controllerComponents: ControllerComponents) exte
   def isTracingEnabled(request: Request[_]) = request.headers.get("X-Apollo-Tracing").isDefined
 
   def renderSchema = Action {
-    Ok(SchemaRenderer.renderSchema(SchemaDefinition.schema))
+    Ok(SchemaRenderer.renderSchema(GraphQLSchema.schema))
   }
 
   lazy val exceptionHandler = ExceptionHandler {

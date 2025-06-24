@@ -1,4 +1,4 @@
-import models.{MyContext, SchemaDefinition, SongRepo}
+import models.{MyContext, GraphQLSchema, SongRepo}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.{JsObject, JsString, Json}
