@@ -1,5 +1,7 @@
 package models
 
+import sangria.execution.FieldTag
+
 object UserRole extends Enumeration {
   val ADMIN, USER = Value
 }
@@ -64,5 +66,7 @@ case class AuthorToSong(
                          musicBandId: Option[Long]
                        )
 
-
+case class AuthenticationException(message: String) extends Exception(message)
+case class AuthorizationException(message: String) extends Exception(message)
+case object Authorized extends FieldTag
 

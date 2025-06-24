@@ -87,5 +87,7 @@ class DAO(db: Database) {
     db.run(insertUserLikesBand)
   }
 
-
+  def authenticate(email: String, password: String): Future[Option[User]] = db.run {
+    users.filter(u => u.email === email && u.password === password).result.headOption
+  }
 }

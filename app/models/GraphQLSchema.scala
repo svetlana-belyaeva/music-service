@@ -6,6 +6,8 @@ import sangria.marshalling.{CoercedScalaResultMarshaller, FromInput}
 import sangria.marshalling.FromInput.InputObjectResult
 import sangria.util.tag.@@
 import sangria.execution.deferred.{DeferredResolver, Fetcher, HasId, Relation, RelationIds}
+import sangria.execution.{ExceptionHandler => EHandler, _}
+
 
 object GraphQLSchema {
   val genreEnum = deriveEnumType[Genre.Value]()
@@ -43,6 +45,11 @@ object GraphQLSchema {
   )
   val Resolver = DeferredResolver.fetchers(albumsFetcher, songsByAlbumFetcher)
 
+  val ErrorHandler = EHandler {
+    case (_, AuthenticationException(message)) => HandledException(message)
+    case (_, AuthorizationException(message)) => HandledException(message)
+  }
+
   val queryType: ObjectType[MyContext, Unit] =
     ObjectType("Query", fields[MyContext, Unit](
       Field("album", ListType(albumType),
@@ -70,6 +77,9 @@ object GraphQLSchema {
   val bandId = Argument("bandId", LongType)
 
   val userRoleType = deriveEnumType[UserRole.Value]()
+  val userType = deriveObjectType[Unit, User](
+    ReplaceField("role", Field("role", userRoleType, resolve = _.value.role)),
+  )
   implicit val userMarshaller: FromInput[User] = new FromInput[User] {
     val marshaller = CoercedScalaResultMarshaller.default
 
@@ -93,6 +103,8 @@ object GraphQLSchema {
       InputField("password", StringType)
     ))
   val userArg: Argument[User] = Argument[User @@ InputObjectResult]("user", userInputType)
+  val EmailArg = Argument("email", StringType)
+  val PasswordArg = Argument("password", StringType)
 
   val mutationType = ObjectType(
     "Mutation",
@@ -100,27 +112,39 @@ object GraphQLSchema {
       Field("likeSong", IntType,
         description = Some("User likes a song"),
         arguments = userId :: songId :: Nil,
+        tags = Authorized :: Nil,
         resolve = c => c.ctx.dao.likeSong(c arg userId, c arg songId)
       ),
       Field("likeAlbum", IntType,
         description = Some("User likes an album"),
         arguments = userId :: albumId :: Nil,
+        tags = Authorized :: Nil,
         resolve = c => c.ctx.dao.likeAlbum(c arg userId, c arg albumId)
       ),
       Field("likeSinger", IntType,
         description = Some("User likes a singer"),
         arguments = userId :: singerId :: Nil,
+        tags = Authorized :: Nil,
         resolve = c => c.ctx.dao.likeSinger(c arg userId, c arg singerId)
       ),
       Field("likeBand", IntType,
         description = Some("User likes a band"),
         arguments = userId :: bandId :: Nil,
+        tags = Authorized :: Nil,
         resolve = c => c.ctx.dao.likeBand(c arg userId, c arg bandId)
       ),
       Field("createUser", LongType,
         description = Some("Register user"),
         arguments = userArg :: Nil,
         resolve = c => c.ctx.dao.createUser(c arg userArg)
+      ),
+      Field("login",
+        userType,
+        arguments = EmailArg :: PasswordArg :: Nil,
+        resolve = ctx => UpdateCtx(
+          ctx.ctx.login(ctx.arg(EmailArg), ctx.arg(PasswordArg))){ user =>
+          ctx.ctx.copy(currentUser = Some(user))
+        }
       )
     )
   )

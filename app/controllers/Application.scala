@@ -1,6 +1,7 @@
 package controllers
 
-import models.{DBSchema, MyContext, GraphQLSchema}
+import models.GraphQLSchema.ErrorHandler
+import models.{AuthMiddleware, DBSchema, GraphQLSchema, MyContext}
 import play.api.libs.json.{JsObject, JsString, Json}
 import play.api.mvc._
 import sangria.execution._
@@ -67,7 +68,9 @@ class Application @Inject()(val controllerComponents: ControllerComponents) exte
             userContext = MyContext(dao),
             variables = variables getOrElse Json.obj(),
             operationName = operation,
-            deferredResolver = GraphQLSchema.Resolver
+            deferredResolver = GraphQLSchema.Resolver,
+            exceptionHandler = ErrorHandler,
+            middleware = AuthMiddleware :: Nil
           ).map(Ok(_))
           .recover {
             case error: QueryAnalysisError => BadRequest(error.resolveError)
