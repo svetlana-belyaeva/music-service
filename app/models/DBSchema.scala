@@ -47,6 +47,15 @@ object DBSchema {
   }
   val singers = TableQuery[SingerTable]
 
+  class MusicBandTable(tag: Tag) extends Table[MusicBand](tag, Some(schema_name), "music_band") {
+    def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+    def name = column[String]("name")
+    def cover = column[Option[String]]("cover")
+
+    def * = (id, name, cover).mapTo[MusicBand]
+  }
+  val musicBands = TableQuery[MusicBandTable]
+
   class AuthorToSongTable(tag: Tag) extends Table[AuthorToSong](tag, Some(schema_name), "author_to_song") {
     def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
     def songId = column[Long]("song_id")
@@ -55,7 +64,9 @@ object DBSchema {
 
     def * = (songId, singerId, musicBandId).mapTo[AuthorToSong]
 
-    // fixme: add foreign keys?
+    def song = foreignKey("song_fk", songId, songs)(_.id)
+    def singer = foreignKey("singer_fk", singerId, singers)(_.id.?, onDelete=ForeignKeyAction.SetNull)
+    def musicBand = foreignKey("band_fk", musicBandId, musicBands)(_.id.?, onDelete=ForeignKeyAction.SetNull)
   }
   val authorToSongs = TableQuery[AuthorToSongTable]
 

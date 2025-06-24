@@ -31,7 +31,7 @@ case class Singer(
                    cover: Option[String]
                  ) extends Performer
 
-case class SingerExtended(
+case class SingerWithSongs(
                            singer: Singer,
                            songs: Seq[Song]
                          )
@@ -39,8 +39,7 @@ case class SingerExtended(
 case class MusicBand(
                       id: Long,
                       name: String,
-                      cover: Option[String],
-                      singers: Seq[Singer], // fixme: proper type?
+                      cover: Option[String]
                     ) extends Performer
 
 case class Song(

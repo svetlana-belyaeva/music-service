@@ -15,17 +15,16 @@ object SchemaDefinition {
     AddFields(Field("album", albumType, resolve = c => albumsFetcher.defer(c.value.albumId)))
   )
   val singerType = deriveObjectType[Unit, Singer]()
-  val singerExtendedType = ObjectType("singer", "singer with songs and albums",
-    fields[Unit, SingerExtended](
+  val singerWithSongsType = ObjectType("singer", "singer with songs and albums",
+    fields[Unit, SingerWithSongs](
       Field("name", StringType, Some("singer name and surname"), resolve = _.value.singer.name),
       Field("cover", OptionType(StringType), Some("singer cover"), resolve = _.value.singer.cover),
-      Field("songs", ListType(songType), Some("songs written by the singer"), resolve = _.value.songs)
-    )
+      Field("songs", ListType(songType), Some("songs written by the singer"), resolve = _.value.songs))
   )
 
   lazy val albumType: ObjectType[Unit, Album] = deriveObjectType[Unit, Album](
     AddFields(
-      Field("songs", ListType(songType), resolve = c => songsFetcher.deferRelSeq(songsByAlbumRel, c.value.id))
+      Field("songs", ListType(songType), resolve = c => songsByAlbumFetcher.deferRelSeq(songsByAlbumRel, c.value.id))
     )
   )
   implicit val albumHasId: HasId[Album, Long] = HasId[Album, Long](_.id)
@@ -38,11 +37,11 @@ object SchemaDefinition {
   val albumsFetcher = Fetcher(
     (ctx: MyContext, ids: Seq[Long]) => ctx.dao.album(ids)
   )
-  val songsFetcher = Fetcher.rel(
+  val songsByAlbumFetcher = Fetcher.rel(
     (ctx: MyContext, ids: Seq[Long]) => ctx.dao.song(ids),
     (ctx: MyContext, ids: RelationIds[Song]) => ctx.dao.songsByAlbum(ids(songsByAlbumRel))
   )
-  val Resolver = DeferredResolver.fetchers(albumsFetcher, songsFetcher)
+  val Resolver = DeferredResolver.fetchers(albumsFetcher, songsByAlbumFetcher)
 
   val queryType: ObjectType[MyContext, Unit] =
     ObjectType("Query", fields[MyContext, Unit](
@@ -50,10 +49,10 @@ object SchemaDefinition {
         description = Some("Returns albums which name match passed argument"),
         arguments = nameSubstringArg :: Nil,
         resolve = c => c.ctx.dao.album(c arg nameSubstringArg)),
-      Field("singer", ListType(singerExtendedType),
+      Field("singer", ListType(singerWithSongsType),
         description = Some("Returns singers with name matching substring"),
         arguments = nameSubstringArg :: Nil,
-        resolve = c => c.ctx.dao.singer(c arg nameSubstringArg)),
+        resolve = c => c.ctx.dao.singerWithSongs(c arg nameSubstringArg)),
       Field("song", ListType(songType),
         description = Some("Returns songs which names match passed argument"),
         arguments = nameSubstringArg :: Nil,

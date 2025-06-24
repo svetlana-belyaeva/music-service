@@ -17,7 +17,7 @@ class DAO(db: Database) {
     db.run(albumsMatchingName.result)
   }
 
-  def singer(nameSubstr: String): Future[Seq[models.SingerExtended]] = {
+  def singerWithSongs(nameSubstr: String): Future[Seq[SingerWithSongs]] = {
     val filteredSingers = for {
       singer <- singers if singer.name like s"%$nameSubstr%"
     } yield singer
@@ -36,7 +36,7 @@ class DAO(db: Database) {
             case (_, Some(song)) => Some(song)
             case _ => None
           }
-          SingerExtended(singer, songs)
+          SingerWithSongs(singer, songs)
       }
     }.toSeq)
   }
