@@ -17,12 +17,13 @@ object GraphQLSchema {
     AddFields(Field("album", albumType, resolve = c => albumsFetcher.defer(c.value.albumId)))
   )
   val singerType = deriveObjectType[Unit, Singer]()
-  val singerWithSongsType = ObjectType("singer", "singer with songs and albums",
-    fields[Unit, SingerWithSongs](
-      Field("name", StringType, Some("singer name and surname"), resolve = _.value.singer.name),
-      Field("cover", OptionType(StringType), Some("singer cover"), resolve = _.value.singer.cover),
+  val performerWithSongsType = ObjectType("singer", "singer with songs and albums",
+    fields[Unit, PerformerWithSongs](
+      Field("name", StringType, Some("singer name and surname"), resolve = _.value.performer.name),
+      Field("cover", OptionType(StringType), Some("singer cover"), resolve = _.value.performer.cover),
       Field("songs", ListType(songType), Some("songs written by the singer"), resolve = _.value.songs))
   )
+  val musicBandType = deriveObjectType[Unit, MusicBand]()
 
   lazy val albumType: ObjectType[Unit, Album] = deriveObjectType[Unit, Album](
     AddFields(
@@ -56,15 +57,19 @@ object GraphQLSchema {
         description = Some("Returns albums which name match passed argument"),
         arguments = nameSubstringArg :: Nil,
         resolve = c => c.ctx.dao.album(c arg nameSubstringArg)),
-      Field("singer", ListType(singerWithSongsType),
+      Field("singer", ListType(performerWithSongsType),
         description = Some("Returns singers with name matching substring"),
         arguments = nameSubstringArg :: Nil,
         resolve = c => c.ctx.dao.singerWithSongs(c arg nameSubstringArg)),
+      Field("musicBand", ListType(performerWithSongsType),
+        description = Some("Returns music bands with name matching substring"),
+        arguments = nameSubstringArg :: Nil,
+        resolve = c => c.ctx.dao.musicBandsWithSongs(c arg nameSubstringArg)),
       Field("song", ListType(songType),
         description = Some("Returns songs which names match passed argument"),
         arguments = nameSubstringArg :: Nil,
         resolve = c => c.ctx.dao.song(c arg nameSubstringArg)),
-      Field("song_by_genre", ListType(songType),
+      Field("songByGenre", ListType(songType),
         description = Some("Returns songs for matching genre"),
         arguments = genreArg :: Nil,
         resolve = c => c.ctx.dao.songByGenre(c arg genreArg))

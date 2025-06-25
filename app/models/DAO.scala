@@ -17,7 +17,7 @@ class DAO(db: Database) {
     db.run(albumsMatchingName.result)
   }
 
-  def singerWithSongs(nameSubstr: String): Future[Seq[SingerWithSongs]] = {
+  def singerWithSongs(nameSubstr: String): Future[Seq[PerformerWithSongs]] = {
     val filteredSingers = for {
       singer <- singers if singer.name like s"%$nameSubstr%"
     } yield singer
@@ -36,7 +36,31 @@ class DAO(db: Database) {
             case (_, Some(song)) => Some(song)
             case _ => None
           }
-          SingerWithSongs(singer, songs)
+          PerformerWithSongs(singer, songs)
+      }
+    }.toSeq)
+  }
+
+  def musicBandsWithSongs(nameSubstr: String): Future[Seq[PerformerWithSongs]] = {
+    val filteredBands = for {
+      band <- musicBands if band.name like s"%$nameSubstr%"
+    } yield band
+
+    val bandWithSongsQuery = for {
+      ((band, _), song) <- filteredBands
+        .joinLeft(authorToSongs).on((band, authorToSong) => band.id === authorToSong.musicBandId)
+        .joinLeft(songs).on((bandToAuthorToSongs, songs) => bandToAuthorToSongs._2.map(_.songId) === songs.id)
+    } yield (band, song)
+
+    db.run(bandWithSongsQuery.result).map(dataTuple => {
+      val groupedBySinger = dataTuple.groupBy(_._1)
+      groupedBySinger.map {
+        case (singer, singersWithSongs) =>
+          val songs = singersWithSongs.flatMap {
+            case (_, Some(song)) => Some(song)
+            case _ => None
+          }
+          PerformerWithSongs(singer, songs)
       }
     }.toSeq)
   }
