@@ -5,6 +5,7 @@ import slick.jdbc.H2Profile.api._
 import slick.jdbc.JdbcType
 import slick.lifted.ProvenShape
 
+import java.util.Base64
 import scala.language.postfixOps
 
 
@@ -22,6 +23,10 @@ object DBSchema {
   implicit val genreColumnType: JdbcType[Genre.Value] with BaseTypedType[Genre.Value] = MappedColumnType.base[Genre.Value, String](
     genre => genre.toString.toLowerCase.capitalize,
     s => Genre.withName(s.toUpperCase))
+  implicit val base64ColumnType: BaseColumnType[String] = MappedColumnType.base[String, Array[Byte]](
+    s => Base64.getDecoder.decode(s),
+    bytes => Base64.getEncoder.encodeToString(bytes)
+  )
 
   class SongTable(tag: Tag) extends Table[Song](tag, Some(schema_name), "song") {
     def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
@@ -29,7 +34,7 @@ object DBSchema {
     def cover = column[Option[String]]("cover")
     def length = column[Double]("length")
     def genre = column[Genre.Value]("genre")
-    def file = column[String]("file")
+    def file = column[String]("file")(base64ColumnType)
     def albumId = column[Long]("album_id")
 
     def * = (id, name, cover, length, genre, file,  albumId).mapTo[Song]
