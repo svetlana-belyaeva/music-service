@@ -51,6 +51,8 @@ object GraphQLSchema {
     case (_, AuthorizationException(message)) => HandledException(message)
   }
 
+  val userId = Argument("userId", LongType)
+
   val queryType: ObjectType[MyContext, Unit] =
     ObjectType("Query", fields[MyContext, Unit](
       Field("album", ListType(albumType),
@@ -72,10 +74,14 @@ object GraphQLSchema {
       Field("songByGenre", ListType(songType),
         description = Some("Returns songs for matching genre"),
         arguments = genreArg :: Nil,
-        resolve = c => c.ctx.dao.songByGenre(c arg genreArg))
+        resolve = c => c.ctx.dao.songByGenre(c arg genreArg)),
+      Field("topSongs", ListType(songType),
+        description = Some("Returns top 5 most listened songs for user"),
+        tags = Authorized :: Nil,
+        arguments = userId :: Nil,
+        resolve = c => c.ctx.dao.top5Songs(c arg userId)),
     ))
 
-  val userId = Argument("userId", LongType)
   val songId = Argument("songId", LongType)
   val albumId = Argument("albumId", LongType)
   val singerId = Argument("singerId", LongType)

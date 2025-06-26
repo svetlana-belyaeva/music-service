@@ -2,6 +2,8 @@ package models
 
 import sangria.execution.FieldTag
 
+import java.time.LocalDateTime
+
 object UserRole extends Enumeration {
   val ADMIN, USER = Value
 }
@@ -66,6 +68,13 @@ case class AuthorToSong(
                          singerId: Option[Long],
                          musicBandId: Option[Long]
                        )
+
+case class UserListensToSong(
+                              id: Long,
+                              userId: Long,
+                              songId: Long,
+                              listenedAt: LocalDateTime
+                            )
 
 case class AuthenticationException(message: String) extends Exception(message)
 case class AuthorizationException(message: String) extends Exception(message)

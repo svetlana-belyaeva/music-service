@@ -3,6 +3,7 @@ package models
 import DBSchema._
 import slick.jdbc.H2Profile.api._
 
+import java.time.LocalDateTime
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -113,5 +114,23 @@ class DAO(db: Database) {
 
   def authenticate(email: String, password: String): Future[Option[User]] = db.run {
     users.filter(u => u.email === email && u.password === password).result.headOption
+  }
+
+  def top5Songs(userId: Long): Future[Seq[Song]] = {
+    val topListenedSongIds = userListenSongs
+      .filter(_.userId === userId)
+      .filter(_.listenedAt >= LocalDateTime.now().minusYears(1))
+      .groupBy(_.songId)
+      .map { case (songId, group) =>
+        (songId, group.length)
+      }
+      .sortBy(_._2.desc)
+      .take(5)
+
+    val topSongs = topListenedSongIds.flatMap { case (songId, _) =>
+      songs.filter(_.id === songId)
+    }
+
+    db.run(topSongs.result)
   }
 }

@@ -5,6 +5,8 @@ import slick.jdbc.H2Profile.api._
 import slick.jdbc.JdbcType
 import slick.lifted.ProvenShape
 
+import java.sql.Timestamp
+import java.time.LocalDateTime
 import java.util.Base64
 import scala.language.postfixOps
 
@@ -90,16 +92,23 @@ object DBSchema {
   }
   val users = TableQuery[UserTable]
 
-//  class UserListenSongTable(tag: Tag) extends Table[UserListensToSong](tag, Some(schema_name), "user_listen_song") {
-//    def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
-//    def userId = column[Long]("user_id")
-//    def songId = column[Long]("song_id")
-//
-//    def * = (id, userId, songId).mapTo[UserListensToSong]
-//
-//    // fixme: add foreign keys?
-//  }
-//  val userListenSong = TableQuery[UserListenSongTable]
+  implicit val listenedAtColumnType: BaseColumnType[Timestamp] =
+    MappedColumnType.base[Timestamp, LocalDateTime](
+      t => t.toLocalDateTime,
+      l => Timestamp.valueOf(l)
+    )
+  class UserListenSongTable(tag: Tag) extends Table[UserListensToSong](tag, Some(schema_name), "user_listen_song") {
+    def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+    def userId = column[Long]("user_id")
+    def songId = column[Long]("song_id")
+    def listenedAt = column[LocalDateTime]("listened_at")
+
+    def * = (id, userId, songId, listenedAt).mapTo[UserListensToSong]
+
+    def song = foreignKey("song_fk", songId, songs)(_.id)
+    def user = foreignKey("user_fk", userId, users)(_.id)
+  }
+  val userListenSongs = TableQuery[UserListenSongTable]
 
   class LikedSongTable(tag: Tag) extends Table[(Long, Long)](tag, Some(schema_name), "liked_song") {
     def userId = column[Long]("user_id")
