@@ -1,7 +1,10 @@
 package models
 
+import models.GraphQLSchema.Arguments.{AlbumIdArg, BandIdArg, EmailArg, GenreArg, NameSubstringArg, PasswordArg, SingerIdArg, SongIdArg, UserIdArg, UserInputArg}
+import models.GraphQLSchema.EnumTypes.UserRoleType
+import models.GraphQLSchema.ObjectTypes.{AlbumType, PerformerWithSongsType, SongType, UserType}
 import sangria.macros.derive._
-import sangria.schema.{Field, _}
+import sangria.schema._
 import sangria.marshalling.{CoercedScalaResultMarshaller, FromInput}
 import sangria.marshalling.FromInput.InputObjectResult
 import sangria.util.tag.@@
@@ -10,32 +13,74 @@ import sangria.execution.{ExceptionHandler => EHandler, _}
 
 
 object GraphQLSchema {
-  val genreEnum = deriveEnumType[Genre.Value]()
+  object EnumTypes {
+    val GenreEnum = deriveEnumType[Genre.Value]()
+    val UserRoleType = deriveEnumType[UserRole.Value]()
+  }
 
-  lazy val songType: ObjectType[Unit, Song] = deriveObjectType[Unit, Song](
-    ReplaceField("genre", Field("genre", genreEnum, resolve = _.value.genre)),
-    AddFields(Field("album", albumType, resolve = c => albumsFetcher.defer(c.value.albumId)))
-  )
-  val singerType = deriveObjectType[Unit, Singer]()
-  val performerWithSongsType = ObjectType("singer", "singer with songs and albums",
-    fields[Unit, PerformerWithSongs](
-      Field("name", StringType, Some("singer name and surname"), resolve = _.value.performer.name),
-      Field("cover", OptionType(StringType), Some("singer cover"), resolve = _.value.performer.cover),
-      Field("songs", ListType(songType), Some("songs written by the singer"), resolve = _.value.songs))
-  )
-  val musicBandType = deriveObjectType[Unit, MusicBand]()
-
-  lazy val albumType: ObjectType[Unit, Album] = deriveObjectType[Unit, Album](
-    AddFields(
-      Field("songs", ListType(songType), resolve = c => songsByAlbumFetcher.deferRelSeq(songsByAlbumRel, c.value.id))
+  object ObjectTypes {
+    lazy val SongType: ObjectType[Unit, Song] = deriveObjectType[Unit, Song](
+      ReplaceField("genre", Field("genre", EnumTypes.GenreEnum, resolve = _.value.genre)),
+      AddFields(Field("album", AlbumType, resolve = c => albumsFetcher.defer(c.value.albumId)))
     )
-  )
+    val SingerType = deriveObjectType[Unit, Singer]()
+    val PerformerWithSongsType = ObjectType("singer", "singer with songs and albums",
+      fields[Unit, PerformerWithSongs](
+        Field("name", StringType, Some("singer name and surname"), resolve = _.value.performer.name),
+        Field("cover", OptionType(StringType), Some("singer cover"), resolve = _.value.performer.cover),
+        Field("songs", ListType(SongType), Some("songs written by the singer"), resolve = _.value.songs))
+    )
+    val MusicBandType = deriveObjectType[Unit, MusicBand]()
+
+    lazy val AlbumType: ObjectType[Unit, Album] = deriveObjectType[Unit, Album](
+      AddFields(
+        Field("songs", ListType(SongType), resolve = c => songsByAlbumFetcher.deferRelSeq(songsByAlbumRel, c.value.id))
+      )
+    )
+    val UserType = deriveObjectType[Unit, User](
+      ReplaceField("role", Field("role", EnumTypes.UserRoleType, resolve = _.value.role)),
+    )
+  }
+
+  object Arguments {
+    val NameSubstringArg = Argument("nameSubstring", StringType, description = "name substring to search for some entity")
+    val GenreArg = Argument("genre", EnumTypes.GenreEnum, description = "genre argument to search for")
+    val UserIdArg = Argument("userId", LongType)
+    val SongIdArg = Argument("songId", LongType)
+    val AlbumIdArg = Argument("albumId", LongType)
+    val SingerIdArg = Argument("singerId", LongType)
+    val BandIdArg = Argument("bandId", LongType)
+
+    implicit val userMarshaller: FromInput[User] = new FromInput[User] {
+      val marshaller = CoercedScalaResultMarshaller.default
+
+      def fromResult(node: marshaller.Node) = {
+        val ad = node.asInstanceOf[Map[String, Any]]
+
+        User(
+          id = 0,
+          role = ad("role").asInstanceOf[UserRole.Value],
+          nickname = ad("nickname").asInstanceOf[String],
+          email = ad("email").asInstanceOf[String],
+          password = ad("password").asInstanceOf[String]
+        )
+      }
+    }
+
+    val userInputType: InputObjectType[User] =
+      InputObjectType[User]("user", List(
+        InputField("role", UserRoleType),
+        InputField("nickname", StringType),
+        InputField("email", StringType),
+        InputField("password", StringType)
+      ))
+    val UserInputArg: Argument[User] = Argument[User @@ InputObjectResult]("user", userInputType)
+    val EmailArg = Argument("email", StringType)
+    val PasswordArg = Argument("password", StringType)
+  }
+
   implicit val albumHasId: HasId[Album, Long] = HasId[Album, Long](_.id)
   implicit val songHasId: HasId[Song, Long] = HasId[Song, Long](_.id)
-
-  val nameSubstringArg = Argument("nameSubstring", StringType, description = "name substring to search for some entity")
-  val genreArg = Argument("genre", genreEnum, description = "genre argument to search for")
-
   val songsByAlbumRel = Relation[Song, Long]("byAlbum", song => Seq(song.albumId))
   val albumsFetcher = Fetcher(
     (ctx: MyContext, ids: Seq[Long]) => ctx.dao.album(ids)
@@ -51,106 +96,69 @@ object GraphQLSchema {
     case (_, AuthorizationException(message)) => HandledException(message)
   }
 
-  val userId = Argument("userId", LongType)
-
   val queryType: ObjectType[MyContext, Unit] =
     ObjectType("Query", fields[MyContext, Unit](
-      Field("album", ListType(albumType),
+      Field("album", ListType(AlbumType),
         description = Some("Returns albums which name match passed argument"),
-        arguments = nameSubstringArg :: Nil,
-        resolve = c => c.ctx.dao.album(c arg nameSubstringArg)),
-      Field("singer", ListType(performerWithSongsType),
+        arguments = NameSubstringArg :: Nil,
+        resolve = c => c.ctx.dao.album(c arg NameSubstringArg)),
+      Field("singer", ListType(PerformerWithSongsType),
         description = Some("Returns singers with name matching substring"),
-        arguments = nameSubstringArg :: Nil,
-        resolve = c => c.ctx.dao.singerWithSongs(c arg nameSubstringArg)),
-      Field("musicBand", ListType(performerWithSongsType),
+        arguments = NameSubstringArg :: Nil,
+        resolve = c => c.ctx.dao.singerWithSongs(c arg NameSubstringArg)),
+      Field("musicBand", ListType(PerformerWithSongsType),
         description = Some("Returns music bands with name matching substring"),
-        arguments = nameSubstringArg :: Nil,
-        resolve = c => c.ctx.dao.musicBandsWithSongs(c arg nameSubstringArg)),
-      Field("song", ListType(songType),
+        arguments = NameSubstringArg :: Nil,
+        resolve = c => c.ctx.dao.musicBandsWithSongs(c arg NameSubstringArg)),
+      Field("song", ListType(SongType),
         description = Some("Returns songs which names match passed argument"),
-        arguments = nameSubstringArg :: Nil,
-        resolve = c => c.ctx.dao.song(c arg nameSubstringArg)),
-      Field("songByGenre", ListType(songType),
+        arguments = NameSubstringArg :: Nil,
+        resolve = c => c.ctx.dao.song(c arg NameSubstringArg)),
+      Field("songByGenre", ListType(SongType),
         description = Some("Returns songs for matching genre"),
-        arguments = genreArg :: Nil,
-        resolve = c => c.ctx.dao.songByGenre(c arg genreArg)),
-      Field("topSongs", ListType(songType),
+        arguments = GenreArg :: Nil,
+        resolve = c => c.ctx.dao.songByGenre(c arg GenreArg)),
+      Field("topSongs", ListType(SongType),
         description = Some("Returns top 5 most listened songs for user"),
         tags = Authorized :: Nil,
-        arguments = userId :: Nil,
-        resolve = c => c.ctx.dao.top5Songs(c arg userId)),
+        arguments = UserIdArg :: Nil,
+        resolve = c => c.ctx.dao.top5Songs(c arg UserIdArg)),
     ))
-
-  val songId = Argument("songId", LongType)
-  val albumId = Argument("albumId", LongType)
-  val singerId = Argument("singerId", LongType)
-  val bandId = Argument("bandId", LongType)
-
-  val userRoleType = deriveEnumType[UserRole.Value]()
-  val userType = deriveObjectType[Unit, User](
-    ReplaceField("role", Field("role", userRoleType, resolve = _.value.role)),
-  )
-  implicit val userMarshaller: FromInput[User] = new FromInput[User] {
-    val marshaller = CoercedScalaResultMarshaller.default
-
-    def fromResult(node: marshaller.Node) = {
-      val ad = node.asInstanceOf[Map[String, Any]]
-
-      User(
-        id = 0,
-        role = ad("role").asInstanceOf[UserRole.Value],
-        nickname = ad("nickname").asInstanceOf[String],
-        email = ad("email").asInstanceOf[String],
-        password = ad("password").asInstanceOf[String]
-      )
-    }
-  }
-  val userInputType: InputObjectType[User] =
-    InputObjectType[User]("user", List(
-      InputField("role", userRoleType),
-      InputField("nickname", StringType),
-      InputField("email", StringType),
-      InputField("password", StringType)
-    ))
-  val userArg: Argument[User] = Argument[User @@ InputObjectResult]("user", userInputType)
-  val EmailArg = Argument("email", StringType)
-  val PasswordArg = Argument("password", StringType)
 
   val mutationType = ObjectType(
     "Mutation",
     fields[MyContext, Unit](
       Field("likeSong", IntType,
         description = Some("User likes a song"),
-        arguments = userId :: songId :: Nil,
+        arguments = UserIdArg :: SongIdArg :: Nil,
         tags = Authorized :: Nil,
-        resolve = c => c.ctx.dao.likeSong(c arg userId, c arg songId)
+        resolve = c => c.ctx.dao.likeSong(c arg UserIdArg, c arg SongIdArg)
       ),
       Field("likeAlbum", IntType,
         description = Some("User likes an album"),
-        arguments = userId :: albumId :: Nil,
+        arguments = UserIdArg :: AlbumIdArg :: Nil,
         tags = Authorized :: Nil,
-        resolve = c => c.ctx.dao.likeAlbum(c arg userId, c arg albumId)
+        resolve = c => c.ctx.dao.likeAlbum(c arg UserIdArg, c arg AlbumIdArg)
       ),
       Field("likeSinger", IntType,
         description = Some("User likes a singer"),
-        arguments = userId :: singerId :: Nil,
+        arguments = UserIdArg :: SingerIdArg :: Nil,
         tags = Authorized :: Nil,
-        resolve = c => c.ctx.dao.likeSinger(c arg userId, c arg singerId)
+        resolve = c => c.ctx.dao.likeSinger(c arg UserIdArg, c arg SingerIdArg)
       ),
       Field("likeBand", IntType,
         description = Some("User likes a band"),
-        arguments = userId :: bandId :: Nil,
+        arguments = UserIdArg :: BandIdArg :: Nil,
         tags = Authorized :: Nil,
-        resolve = c => c.ctx.dao.likeBand(c arg userId, c arg bandId)
+        resolve = c => c.ctx.dao.likeBand(c arg UserIdArg, c arg BandIdArg)
       ),
       Field("createUser", LongType,
         description = Some("Register user"),
-        arguments = userArg :: Nil,
-        resolve = c => c.ctx.dao.createUser(c arg userArg)
+        arguments = UserInputArg :: Nil,
+        resolve = c => c.ctx.dao.createUser(c arg UserInputArg)
       ),
       Field("login",
-        userType,
+        UserType,
         arguments = EmailArg :: PasswordArg :: Nil,
         resolve = ctx => UpdateCtx(
           ctx.ctx.login(ctx.arg(EmailArg), ctx.arg(PasswordArg))){ user =>
