@@ -43,7 +43,9 @@ case class MusicBand(
 
 case class PerformerWithSongs(
                                performer: Performer,
-                               songs: Seq[Song]
+                               songs: Seq[Song],
+                               albums: Seq[Album],
+                               listeningCount: Int
                          )
 
 
@@ -65,6 +67,12 @@ case class Album(
 
 case class AuthorToSong(
                          songId: Long,
+                         singerId: Option[Long],
+                         musicBandId: Option[Long]
+                       )
+
+case class AuthorToAlbum(
+                         albumId: Long,
                          singerId: Option[Long],
                          musicBandId: Option[Long]
                        )

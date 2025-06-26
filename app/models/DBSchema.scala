@@ -77,6 +77,21 @@ object DBSchema {
   }
   val authorToSongs = TableQuery[AuthorToSongTable]
 
+  class AuthorToAlbumTable(tag: Tag) extends Table[AuthorToAlbum](tag, Some(schema_name), "author_to_album") {
+    def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+    def albumId = column[Long]("album_id")
+    def singerId = column[Option[Long]]("singer_id")
+    def musicBandId = column[Option[Long]]("music_band_id")
+
+    def * = (albumId, singerId, musicBandId).mapTo[AuthorToAlbum]
+
+    def album = foreignKey("album_fk", albumId, albums)(_.id)
+    def singer = foreignKey("singer_fk", singerId, singers)(_.id.?, onDelete=ForeignKeyAction.SetNull)
+    def musicBand = foreignKey("band_fk", musicBandId, musicBands)(_.id.?, onDelete=ForeignKeyAction.SetNull)
+  }
+  val authorToAlbums = TableQuery[AuthorToAlbumTable]
+
+
   implicit val userRoleColumnType: JdbcType[UserRole.Value] with BaseTypedType[UserRole.Value] = MappedColumnType.base[UserRole.Value, String](
     userRole => userRole.toString.toLowerCase.capitalize,
     s => UserRole.withName(s.toUpperCase))

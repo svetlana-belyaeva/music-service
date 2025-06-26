@@ -1,8 +1,8 @@
 package models
 
-import models.GraphQLSchema.Arguments.{AlbumIdArg, BandIdArg, EmailArg, GenreArg, NameSubstringArg, PasswordArg, SingerIdArg, SongIdArg, UserIdArg, UserInputArg}
-import models.GraphQLSchema.EnumTypes.UserRoleType
-import models.GraphQLSchema.ObjectTypes.{AlbumType, PerformerWithSongsType, SongType, UserType}
+import models.GraphQLSchema.Arguments._
+import models.GraphQLSchema.EnumTypes._
+import models.GraphQLSchema.ObjectTypes._
 import sangria.macros.derive._
 import sangria.schema._
 import sangria.marshalling.{CoercedScalaResultMarshaller, FromInput}
@@ -24,11 +24,14 @@ object GraphQLSchema {
       AddFields(Field("album", AlbumType, resolve = c => albumsFetcher.defer(c.value.albumId)))
     )
     val SingerType = deriveObjectType[Unit, Singer]()
-    val PerformerWithSongsType = ObjectType("singer", "singer with songs and albums",
+    val PerformerExtendedType = ObjectType("singer", "singer with songs and albums",
       fields[Unit, PerformerWithSongs](
         Field("name", StringType, Some("singer name and surname"), resolve = _.value.performer.name),
         Field("cover", OptionType(StringType), Some("singer cover"), resolve = _.value.performer.cover),
-        Field("songs", ListType(SongType), Some("songs written by the singer"), resolve = _.value.songs))
+        Field("songs", ListType(SongType), Some("songs written by the singer/band"), resolve = _.value.songs),
+        Field("albums", ListType(AlbumType), Some("albums written by the singer/band"), resolve = _.value.albums),
+        Field("listeningCount", IntType, Some("count of songs listening"), resolve = _.value.listeningCount)
+      )
     )
     val MusicBandType = deriveObjectType[Unit, MusicBand]()
 
@@ -102,14 +105,14 @@ object GraphQLSchema {
         description = Some("Returns albums which name match passed argument"),
         arguments = NameSubstringArg :: Nil,
         resolve = c => c.ctx.dao.album(c arg NameSubstringArg)),
-      Field("singer", ListType(PerformerWithSongsType),
+      Field("singer", ListType(PerformerExtendedType),
         description = Some("Returns singers with name matching substring"),
         arguments = NameSubstringArg :: Nil,
-        resolve = c => c.ctx.dao.singerWithSongs(c arg NameSubstringArg)),
-      Field("musicBand", ListType(PerformerWithSongsType),
+        resolve = c => c.ctx.dao.singerExtended(c arg NameSubstringArg)),
+      Field("musicBand", ListType(PerformerExtendedType),
         description = Some("Returns music bands with name matching substring"),
         arguments = NameSubstringArg :: Nil,
-        resolve = c => c.ctx.dao.musicBandsWithSongs(c arg NameSubstringArg)),
+        resolve = c => c.ctx.dao.musicBandsExtended(c arg NameSubstringArg)),
       Field("song", ListType(SongType),
         description = Some("Returns songs which names match passed argument"),
         arguments = NameSubstringArg :: Nil,

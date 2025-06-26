@@ -18,52 +18,56 @@ class DAO(db: Database) {
     db.run(albumsMatchingName.result)
   }
 
-  def singerWithSongs(nameSubstr: String): Future[Seq[PerformerWithSongs]] = {
+  def singerExtended(nameSubstr: String): Future[Seq[PerformerWithSongs]] = {
     val filteredSingers = for {
       singer <- singers if singer.name like s"%$nameSubstr%"
     } yield singer
 
-    val singerWithSongsQuery = for {
-      ((singer, _), song) <- filteredSingers
-        .joinLeft(authorToSongs).on((singer, authorToSong) => singer.id === authorToSong.singerId)
-        .joinLeft(songs).on((singerToAuthorToSongs, songs) => singerToAuthorToSongs._2.map(_.songId) === songs.id)
-    } yield (singer, song)
+    val action = for {
+      matchedSingers <- filteredSingers.result
 
-    db.run(singerWithSongsQuery.result).map(dataTuple => {
-      val groupedBySinger = dataTuple.groupBy(_._1)
-      groupedBySinger.map {
-        case (singer, singersWithSongs) =>
-          val songs = singersWithSongs.flatMap {
-            case (_, Some(song)) => Some(song)
-            case _ => None
-          }
-          PerformerWithSongs(singer, songs)
-      }
-    }.toSeq)
+      singersWithData <- DBIO.sequence(matchedSingers.map { singer =>
+        for {
+          songIds <- authorToSongs.filter(_.singerId === singer.id).map(_.songId).result
+          singerSongs <- songs.filter(_.id.inSet(songIds)).result
+
+          albumIds <- authorToAlbums.filter(_.singerId === singer.id).map(_.albumId).result
+          singerAlbums <- albums.filter(_.id.inSet(albumIds)).result
+
+          listeningCount <- userListenSongs.filter(_.songId.inSet(songIds)).length.result
+        } yield (singer, singerSongs, singerAlbums, listeningCount)
+      })
+    } yield singersWithData
+
+    db.run(action.map { results =>
+      results.map { case (singer, songs, albums, listeningCount) => PerformerWithSongs(singer, songs, albums, listeningCount) }
+    })
   }
 
-  def musicBandsWithSongs(nameSubstr: String): Future[Seq[PerformerWithSongs]] = {
-    val filteredBands = for {
+  def musicBandsExtended(nameSubstr: String): Future[Seq[PerformerWithSongs]] = {
+    val filteredSingers = for {
       band <- musicBands if band.name like s"%$nameSubstr%"
     } yield band
 
-    val bandWithSongsQuery = for {
-      ((band, _), song) <- filteredBands
-        .joinLeft(authorToSongs).on((band, authorToSong) => band.id === authorToSong.musicBandId)
-        .joinLeft(songs).on((bandToAuthorToSongs, songs) => bandToAuthorToSongs._2.map(_.songId) === songs.id)
-    } yield (band, song)
+    val action = for {
+      matchedBands <- filteredSingers.result
 
-    db.run(bandWithSongsQuery.result).map(dataTuple => {
-      val groupedBySinger = dataTuple.groupBy(_._1)
-      groupedBySinger.map {
-        case (singer, singersWithSongs) =>
-          val songs = singersWithSongs.flatMap {
-            case (_, Some(song)) => Some(song)
-            case _ => None
-          }
-          PerformerWithSongs(singer, songs)
-      }
-    }.toSeq)
+      singersWithData <- DBIO.sequence(matchedBands.map { band =>
+        for {
+          songIds <- authorToSongs.filter(_.musicBandId === band.id).map(_.songId).result
+          singerSongs <- songs.filter(_.id.inSet(songIds)).result
+
+          albumIds <- authorToAlbums.filter(_.musicBandId === band.id).map(_.albumId).result
+          singerAlbums <- albums.filter(_.id.inSet(albumIds)).result
+
+          listeningCount <- userListenSongs.filter(_.songId.inSet(songIds)).length.result
+        } yield (band, singerSongs, singerAlbums, listeningCount)
+      })
+    } yield singersWithData
+
+    db.run(action.map { results =>
+      results.map { case (singer, songs, albums, listeningCount) => PerformerWithSongs(singer, songs, albums, listeningCount) }
+    })
   }
 
   def song(nameSubstring: String): Future[Seq[Song]] = {
